@@ -110,7 +110,7 @@ window.sonde = {
     // Le mode voulu est gardé, posé sur le champ actif tout de suite et sur chaque champ qui prend le focus.
     modeClavier: (inputMode, autoCapitalize) => {
         window.SONDE_CLAVIER = { inputMode: inputMode, autoCapitalize: autoCapitalize };
-        appliquerModeClavier(document.activeElement);
+        appliquerModeClavier(elementActif());
     },
     hauteurClavier: () => {
         const vv = window.visualViewport;
@@ -119,9 +119,12 @@ window.sonde = {
     },
     mesuresClavier: () => {
         const vv = window.visualViewport;
-        const el = document.activeElement;
+        const el = elementActif();
+        const hote = document.activeElement;
+        appliquerModeClavier(el); // filet : le champ a pu prendre le focus avant que Kotlin annonce son mode
         return "inner=" + Math.round(window.innerHeight) + " vv=" + (vv ? Math.round(vv.height) + "+" + Math.round(vv.offsetTop) : "n/a")
-            + " actif=" + (el ? el.tagName + (el.getAttribute("inputmode") ? "[" + el.getAttribute("inputmode") + "," + el.getAttribute("autocapitalize") + "]" : "") : "-");
+            + " hôte=" + (hote ? hote.tagName : "-") + (hote && hote.shadowRoot ? "(ombre)" : "")
+            + " actif=" + (el ? el.tagName + (el.isContentEditable ? "(éditable)" : "") + (el.getAttribute("inputmode") ? "[" + el.getAttribute("inputmode") + "," + el.getAttribute("autocapitalize") + "]" : "") : "-");
     },
     recharger: async () => {
         try {
@@ -146,6 +149,12 @@ window.sonde = {
 // Stockage de la tâche 3 : OPFS quand le navigateur sait écrire un fichier depuis la page
 // (getDirectory ET createWritable : Safari avant la 26 n'a que le premier, réservé aux
 // Workers), sinon IndexedDB, un enregistrement par morceau de 1 Mo dans la base « sonde ».
+// L'élément réellement actif, en descendant dans les Shadow DOM (activeElement ne rend que l'hôte).
+function elementActif() {
+    let el = document.activeElement;
+    while (el && el.shadowRoot && el.shadowRoot.activeElement) el = el.shadowRoot.activeElement;
+    return el;
+}
 function appliquerModeClavier(el) {
     const m = window.SONDE_CLAVIER;
     // Compose écrit dans un élément de saisie du navigateur : input, textarea, ou un DIV éditable (vu sur iPadOS 16.7).
@@ -155,7 +164,7 @@ function appliquerModeClavier(el) {
     el.setAttribute("autocorrect", m.autoCapitalize === "none" ? "off" : "on");
     el.setAttribute("enterkeyhint", "done");
 }
-document.addEventListener("focusin", (e) => appliquerModeClavier(e.target), true);
+document.addEventListener("focusin", (e) => appliquerModeClavier(e.composedPath ? e.composedPath()[0] : e.target), true);
 
 const stockage = (() => {
     const MO = 1048576;
