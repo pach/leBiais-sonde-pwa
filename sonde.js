@@ -104,6 +104,26 @@ window.sonde = {
             return etat + (navigator.serviceWorker.controller ? ", contrôle la page" : ", ne contrôle pas encore la page") + attente + echec;
         } catch (e) { return "indisponible" + echec; }
     },
+    // Mise à jour forcée : vérifie qu'on est en ligne, puis retire le Service Worker et les caches
+    // `sonde-*` et recharge. Le stockage (OPFS, IndexedDB, localStorage) n'est jamais touché.
+    recharger: async () => {
+        try {
+            const r = await fetch("build.js?" + Date.now(), { cache: "no-store" });
+            if (!r.ok) throw new Error("HTTP " + r.status);
+        } catch (e) {
+            alert("Hors ligne : mise à jour impossible (la version installée reste utilisable).");
+            return;
+        }
+        try {
+            if ("serviceWorker" in navigator) {
+                for (const reg of await navigator.serviceWorker.getRegistrations()) await reg.unregister();
+            }
+            if (window.caches) {
+                for (const nom of await caches.keys()) if (nom.indexOf("sonde-") === 0) await caches.delete(nom);
+            }
+        } catch (e) { /* on recharge quand même */ }
+        location.reload();
+    },
 };
 
 // Stockage de la tâche 3 : OPFS quand le navigateur sait écrire un fichier depuis la page
