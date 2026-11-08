@@ -148,7 +148,8 @@ window.sonde = {
 // Workers), sinon IndexedDB, un enregistrement par morceau de 1 Mo dans la base « sonde ».
 function appliquerModeClavier(el) {
     const m = window.SONDE_CLAVIER;
-    if (!m || !el || (el.tagName !== "INPUT" && el.tagName !== "TEXTAREA")) return;
+    // Compose écrit dans un élément de saisie du navigateur : input, textarea, ou un DIV éditable (vu sur iPadOS 16.7).
+    if (!m || !el || !(el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
     el.setAttribute("inputmode", m.inputMode);
     el.setAttribute("autocapitalize", m.autoCapitalize);
     el.setAttribute("autocorrect", m.autoCapitalize === "none" ? "off" : "on");
