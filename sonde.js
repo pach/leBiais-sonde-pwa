@@ -106,6 +106,23 @@ window.sonde = {
     },
     // Mise à jour forcée : vérifie qu'on est en ligne, puis retire le Service Worker et les caches
     // `sonde-*` et recharge. Le stockage (OPFS, IndexedDB, localStorage) n'est jamais touché.
+    // Clavier : Compose ne passe pas toujours inputmode/autocapitalize à son élément de saisie.
+    // Le mode voulu est gardé, posé sur le champ actif tout de suite et sur chaque champ qui prend le focus.
+    modeClavier: (inputMode, autoCapitalize) => {
+        window.SONDE_CLAVIER = { inputMode: inputMode, autoCapitalize: autoCapitalize };
+        appliquerModeClavier(document.activeElement);
+    },
+    hauteurClavier: () => {
+        const vv = window.visualViewport;
+        if (!vv) return 0;
+        return Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    },
+    mesuresClavier: () => {
+        const vv = window.visualViewport;
+        const el = document.activeElement;
+        return "inner=" + Math.round(window.innerHeight) + " vv=" + (vv ? Math.round(vv.height) + "+" + Math.round(vv.offsetTop) : "n/a")
+            + " actif=" + (el ? el.tagName + (el.getAttribute("inputmode") ? "[" + el.getAttribute("inputmode") + "," + el.getAttribute("autocapitalize") + "]" : "") : "-");
+    },
     recharger: async () => {
         try {
             const r = await fetch("build.js?" + Date.now(), { cache: "no-store" });
@@ -129,6 +146,16 @@ window.sonde = {
 // Stockage de la tâche 3 : OPFS quand le navigateur sait écrire un fichier depuis la page
 // (getDirectory ET createWritable : Safari avant la 26 n'a que le premier, réservé aux
 // Workers), sinon IndexedDB, un enregistrement par morceau de 1 Mo dans la base « sonde ».
+function appliquerModeClavier(el) {
+    const m = window.SONDE_CLAVIER;
+    if (!m || !el || (el.tagName !== "INPUT" && el.tagName !== "TEXTAREA")) return;
+    el.setAttribute("inputmode", m.inputMode);
+    el.setAttribute("autocapitalize", m.autoCapitalize);
+    el.setAttribute("autocorrect", m.autoCapitalize === "none" ? "off" : "on");
+    el.setAttribute("enterkeyhint", "done");
+}
+document.addEventListener("focusin", (e) => appliquerModeClavier(e.target), true);
+
 const stockage = (() => {
     const MO = 1048576;
     const opfsPossible = () => !!(navigator.storage && navigator.storage.getDirectory
