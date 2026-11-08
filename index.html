@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#1F1B16">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Sonde">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon" href="icones/apple-touch-icon.png">
+    <title>Le Biais — sonde</title>
+    <style>
+        html, body { margin: 0; height: 100%; overflow: hidden; background: #FFFBF2; }
+        #ComposeTarget { position: fixed; inset: 0; }
+    </style>
+    <script src="build.js"></script>
+    <script src="sonde.js"></script>
+</head>
+<body>
+    <div id="ComposeTarget"></div>
+    <script src="chargeur.js"></script>
+    <script>
+        // Le Service Worker (sw.js) : hors ligne, et un nouveau build ne prend la main qu'à la relance.
+        // Il apprend par « ?v= » quelle version le chargeur a choisie : c'est elle qu'il précache.
+        // Un échec (enregistrement ou installation) est gardé pour l'écran Infos, jamais avalé.
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", function () {
+                navigator.serviceWorker.register("sw.js?v=" + (window.SONDE_VERSION || "wasm")).then(function (r) {
+                    var w = r.installing;
+                    if (w) w.addEventListener("statechange", function () {
+                        if (w.state === "redundant") window.SONDE_SW_ERREUR = "installation échouée (un fichier à précacher manque ou est illisible)";
+                    });
+                }).catch(function (e) { window.SONDE_SW_ERREUR = "enregistrement refusé : " + e; });
+            });
+        }
+    </script>
+</body>
+</html>
