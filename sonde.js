@@ -1,6 +1,31 @@
 // Tout le JavaScript de la sonde vit ici. Chaque fonction est appelée par
 // l'interface Kotlin `Navigateur`. UNE ENTRÉE PAR LIGNE, virgule finale, rangée
 // dans la section de sa tâche.
+// Journal des chargements de la page : chaque exécution de ce script est un chargement (ouverture,
+// rechargement, ou page déchargée puis rechargée par Safari). Gardé dans localStorage, donc il survit à
+// la relance. Sert à répondre à « Safari a-t-il rechargé la sonde pendant l'essai d'endurance ? ».
+(function () {
+    let n = 1, journal = [], arrierePlan = 0;
+    try {
+        n = parseInt(localStorage.getItem("sonde.chargements") || "0", 10) + 1;
+        localStorage.setItem("sonde.chargements", String(n));
+        journal = JSON.parse(localStorage.getItem("sonde.journalChargements") || "[]");
+        arrierePlan = parseInt(localStorage.getItem("sonde.arrierePlan") || "0", 10);
+    } catch (e) { /* stockage refusé : on garde ce qu'on a */ }
+    const nav = performance.getEntriesByType && performance.getEntriesByType("navigation")[0];
+    journal.push({ n: n, t: new Date().toISOString(), type: nav ? nav.type : "?", build: window.SONDE_BUILD || "" });
+    journal = journal.slice(-8);
+    try { localStorage.setItem("sonde.journalChargements", JSON.stringify(journal)); } catch (e) { }
+    window.SONDE_CHARGEMENT = n;
+    window.SONDE_JOURNAL = journal;
+    document.addEventListener("visibilitychange", function () {
+        if (document.visibilityState !== "hidden") return;
+        arrierePlan++;
+        try { localStorage.setItem("sonde.arrierePlan", String(arrierePlan)); } catch (e) { }
+    });
+    window.SONDE_ARRIERE_PLAN = function () { return arrierePlan; };
+})();
+
 window.sonde = {
     // ---- Socle (tâche 2) ----
     estInstallee: () => navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches,
@@ -125,6 +150,13 @@ window.sonde = {
         return "inner=" + Math.round(window.innerHeight) + " vv=" + (vv ? Math.round(vv.height) + "+" + Math.round(vv.offsetTop) : "n/a")
             + " hôte=" + (hote ? hote.tagName : "-") + (hote && hote.shadowRoot ? "(ombre)" : "")
             + " actif=" + (el ? el.tagName + (el.isContentEditable ? "(éditable)" : "") + (el.getAttribute("inputmode") ? "[" + el.getAttribute("inputmode") + "," + el.getAttribute("autocapitalize") + "]" : "") : "-");
+    },
+    // Le journal des chargements, une ligne par chargement : « n° 12 · 21/11 14:03 · reload · build … ».
+    chargements: () => {
+        const j = window.SONDE_JOURNAL || [];
+        const lignes = j.map((e) => "n° " + e.n + " · " + e.t.replace("T", " ").slice(0, 19) + " UTC · " + e.type + " · build " + e.build);
+        return "Ce chargement : n° " + window.SONDE_CHARGEMENT + " (le compteur ne revient jamais à zéro). "
+            + "Passages en arrière-plan : " + (window.SONDE_ARRIERE_PLAN ? window.SONDE_ARRIERE_PLAN() : "?") + ".\n" + lignes.join("\n");
     },
     recharger: async () => {
         try {
