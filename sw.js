@@ -6,7 +6,7 @@
 // La page l'enregistre avec « sw.js?v=wasm » ou « sw.js?v=js » : la version que le
 // chargeur a réellement choisie. Seule celle-là est précachée à l'installation, avec
 // le tronc commun ; l'autre se met en cache À LA DEMANDE, la première fois qu'elle est chargée.
-const MANIFESTE = { "build": "20261121-1120", "requis": ["./", "build.js", "chargeur.js", "index.html", "sonde.js"], "optionnels": ["icones/apple-touch-icon.png", "icones/icone-192.png", "icones/icone-512.png", "manifest.webmanifest"], "versions": { "wasm": ["wasm/52f1b60429f4fb111101.wasm", "wasm/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_bold.otf", "wasm/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_regular.otf", "wasm/e9b28911e687b1ee6b42.wasm", "wasm/sondePwa.js"], "js": ["js/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_bold.otf", "js/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_regular.otf", "js/e9b28911e687b1ee6b42.wasm", "js/js-reexport-symbols.mjs", "js/skiko.mjs", "js/skiko.wasm", "js/skikod8.mjs", "js/sondePwa.js"] }, "alias": { "js/skiko.wasm": "js/e9b28911e687b1ee6b42.wasm", "wasm/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_bold.otf": "js/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_bold.otf", "wasm/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_regular.otf": "js/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_regular.otf", "wasm/e9b28911e687b1ee6b42.wasm": "js/e9b28911e687b1ee6b42.wasm" } }; // remplacé par Gradle
+const MANIFESTE = { "build": "20261121-1933", "requis": ["./", "build.js", "chargeur.js", "index.html", "sonde.js"], "optionnels": ["icones/apple-touch-icon.png", "icones/icone-192.png", "icones/icone-512.png", "manifest.webmanifest"], "versions": { "wasm": ["wasm/680d74fc16d65b6ee032.wasm", "wasm/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_bold.otf", "wasm/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_regular.otf", "wasm/e9b28911e687b1ee6b42.wasm", "wasm/sondePwa.js"], "js": ["js/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_bold.otf", "js/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_regular.otf", "js/e9b28911e687b1ee6b42.wasm", "js/js-reexport-symbols.mjs", "js/skiko.mjs", "js/skiko.wasm", "js/skikod8.mjs", "js/sondePwa.js"] }, "alias": { "js/skiko.wasm": "js/e9b28911e687b1ee6b42.wasm", "wasm/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_bold.otf": "js/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_bold.otf", "wasm/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_regular.otf": "js/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_regular.otf", "wasm/e9b28911e687b1ee6b42.wasm": "js/e9b28911e687b1ee6b42.wasm" } }; // remplacé par Gradle
 // MANIFESTE = {
 //   build:       "20261105-1200",
 //   requis:      fichiers communs sans lesquels la sonde ne démarre pas (échec d'installation s'il en manque un),
@@ -47,6 +47,8 @@ self.addEventListener("activate", (evenement) => {
 // Les fonds de carte : IGN (data.geopf.fr, WMTS) et OpenTopoMap (tile.opentopomap.org).
 const estTuile = (url) => /tile|wmts|geopf/i.test(url.hostname + url.pathname);
 
+let ajoutsDepuisLeTri = 0;
+
 async function tuile(requete) {
     const cache = await caches.open(TUILES);
     const trouvee = await cache.match(requete);
@@ -54,8 +56,11 @@ async function tuile(requete) {
     const reponse = await fetch(requete);
     if (reponse.ok) { // la sonde demande en cors : une réponse refusée n'entre pas dans le cache
         await cache.put(requete, reponse.clone());
-        const cles = await cache.keys(); // dans l'ordre d'entrée : on retire les plus anciennes
-        for (let i = 0; i < cles.length - TUILES_MAX; i++) await cache.delete(cles[i]);
+        // Le plafond ne se vérifie que toutes les 25 tuiles : lister le cache à chaque tuile ralentit la carte.
+        if (++ajoutsDepuisLeTri % 25 === 0) {
+            const cles = await cache.keys(); // dans l'ordre d'entrée : on retire les plus anciennes
+            for (let i = 0; i < cles.length - TUILES_MAX; i++) await cache.delete(cles[i]);
+        }
     }
     return reponse;
 }
