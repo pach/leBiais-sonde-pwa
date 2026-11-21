@@ -19,6 +19,7 @@
     window.SONDE_CHARGEMENT = n;
     window.SONDE_JOURNAL = journal;
     document.addEventListener("visibilitychange", function () {
+        window.SONDE_VIS_T = performance.now();
         if (document.visibilityState !== "hidden") return;
         arrierePlan++;
         try { localStorage.setItem("sonde.arrierePlan", String(arrierePlan)); } catch (e) { }
@@ -159,6 +160,7 @@ window.sonde = {
             + "Passages en arrière-plan : " + (window.SONDE_ARRIERE_PLAN ? window.SONDE_ARRIERE_PLAN() : "?") + ".\n" + lignes.join("\n");
     },
     heure: () => new Date().toTimeString().slice(0, 8),
+    dernierChangementVisibilite: () => window.SONDE_VIS_T || 0,
     // Relevé de fluidité : une ligne toutes les 5 s, gardée dans localStorage (600 lignes au plus).
     // Page cachée : rien n'est écrit (les images y sont arrêtées, ce ne serait pas une saccade).
     releveAjouter: (ligne) => {
@@ -178,13 +180,13 @@ window.sonde = {
         window.SONDE_COPIE = "";
         let lignes = [];
         try { lignes = JSON.parse(localStorage.getItem("sonde.releve") || "[]"); } catch (e) { }
-        const creux = lignes.filter((l) => { const p = l.split("|"); return parseInt(p[3], 10) < 20; });
+        const creux = lignes.filter((l) => { const p = l.split("|"); return parseInt(p[3], 10) < 20 || parseInt(p[7] || "0", 10) >= 500; });
         const texte = [
             "# Relevé de la sonde — build " + window.SONDE_BUILD + " (" + (window.SONDE_VERSION || "?") + ")",
             "# " + navigator.userAgent,
             "# " + window.sonde.chargements().replace(/\n/g, "\n# "),
-            "# colonnes : heure|écran|fps|fps min|photos|fiches|Mo décodés",
-            "## creux (fps min < 20) : " + creux.length,
+            "# colonnes : heure|écran|fps|fps min|photos|fiches|Mo décodés|pause max (ms)",
+            "## creux (fps min < 20 ou pause ≥ 500 ms) : " + creux.length,
             creux.join("\n"),
             "## 120 dernières lignes sur " + lignes.length,
             lignes.slice(-120).join("\n"),
