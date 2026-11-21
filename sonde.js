@@ -158,6 +158,55 @@ window.sonde = {
         return "Ce chargement : n° " + window.SONDE_CHARGEMENT + " (le compteur ne revient jamais à zéro). "
             + "Passages en arrière-plan : " + (window.SONDE_ARRIERE_PLAN ? window.SONDE_ARRIERE_PLAN() : "?") + ".\n" + lignes.join("\n");
     },
+    heure: () => new Date().toTimeString().slice(0, 8),
+    // Relevé de fluidité : une ligne toutes les 5 s, gardée dans localStorage (600 lignes au plus).
+    // Page cachée : rien n'est écrit (les images y sont arrêtées, ce ne serait pas une saccade).
+    releveAjouter: (ligne) => {
+        if (document.visibilityState === "hidden") return;
+        try {
+            let l = JSON.parse(localStorage.getItem("sonde.releve") || "[]");
+            l.push(ligne);
+            if (l.length > 600) l = l.slice(-600);
+            localStorage.setItem("sonde.releve", JSON.stringify(l));
+        } catch (e) { }
+    },
+    releveLire: () => { try { return JSON.parse(localStorage.getItem("sonde.releve") || "[]").join("\n"); } catch (e) { return ""; } },
+    releveEffacer: () => { try { localStorage.removeItem("sonde.releve"); } catch (e) { } },
+    // Copie le relevé pour le coller dans la conversation : en-tête (build, appareil, chargements),
+    // tous les creux, puis les 120 dernières lignes. L'appel part du toucher : c'est ce qui autorise iOS à copier.
+    copierReleve: () => {
+        window.SONDE_COPIE = "";
+        let lignes = [];
+        try { lignes = JSON.parse(localStorage.getItem("sonde.releve") || "[]"); } catch (e) { }
+        const creux = lignes.filter((l) => { const p = l.split("|"); return parseInt(p[3], 10) < 20; });
+        const texte = [
+            "# Relevé de la sonde — build " + window.SONDE_BUILD + " (" + (window.SONDE_VERSION || "?") + ")",
+            "# " + navigator.userAgent,
+            "# " + window.sonde.chargements().replace(/\n/g, "\n# "),
+            "# colonnes : heure|écran|fps|fps min|photos|fiches|Mo décodés",
+            "## creux (fps min < 20) : " + creux.length,
+            creux.join("\n"),
+            "## 120 dernières lignes sur " + lignes.length,
+            lignes.slice(-120).join("\n"),
+        ].join("\n");
+        const repli = () => {
+            try {
+                const t = document.createElement("textarea");
+                t.value = texte; t.style.position = "fixed"; t.style.opacity = "0";
+                document.body.appendChild(t); t.select();
+                const ok = document.execCommand("copy");
+                document.body.removeChild(t);
+                window.SONDE_COPIE = ok ? "copié (" + lignes.length + " lignes)" : "échec : copie refusée";
+            } catch (e) { window.SONDE_COPIE = "échec : " + e; }
+        };
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(texte).then(
+                    () => { window.SONDE_COPIE = "copié (" + lignes.length + " lignes)"; }, repli);
+            } else { repli(); }
+        } catch (e) { repli(); }
+    },
+    statutCopie: () => window.SONDE_COPIE || "",
     recharger: async () => {
         try {
             const r = await fetch("build.js?" + Date.now(), { cache: "no-store" });
