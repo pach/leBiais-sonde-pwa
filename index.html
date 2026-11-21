@@ -17,6 +17,9 @@
         #ComposeTarget { position: fixed; inset: 0; touch-action: none; }
     </style>
     <script src="build.js"></script>
+    <!-- Facultatif : window.SONDE_RAPPORT = {url, cle}, écrit par tools/publier-sonde.sh dans la version publiée.
+         Absent (version locale), le chargement échoue sans conséquence et « Envoyer le rapport » est grisé. -->
+    <script src="rapport-config.js"></script>
     <script src="sonde.js"></script>
 </head>
 <body>

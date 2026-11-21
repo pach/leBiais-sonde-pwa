@@ -6,7 +6,7 @@
 // La page l'enregistre avec « sw.js?v=wasm » ou « sw.js?v=js » : la version que le
 // chargeur a réellement choisie. Seule celle-là est précachée à l'installation, avec
 // le tronc commun ; l'autre se met en cache À LA DEMANDE, la première fois qu'elle est chargée.
-const MANIFESTE = { "build": "20261121-1933", "requis": ["./", "build.js", "chargeur.js", "index.html", "sonde.js"], "optionnels": ["icones/apple-touch-icon.png", "icones/icone-192.png", "icones/icone-512.png", "manifest.webmanifest"], "versions": { "wasm": ["wasm/680d74fc16d65b6ee032.wasm", "wasm/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_bold.otf", "wasm/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_regular.otf", "wasm/e9b28911e687b1ee6b42.wasm", "wasm/sondePwa.js"], "js": ["js/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_bold.otf", "js/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_regular.otf", "js/e9b28911e687b1ee6b42.wasm", "js/js-reexport-symbols.mjs", "js/skiko.mjs", "js/skiko.wasm", "js/skikod8.mjs", "js/sondePwa.js"] }, "alias": { "js/skiko.wasm": "js/e9b28911e687b1ee6b42.wasm", "wasm/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_bold.otf": "js/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_bold.otf", "wasm/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_regular.otf": "js/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_regular.otf", "wasm/e9b28911e687b1ee6b42.wasm": "js/e9b28911e687b1ee6b42.wasm" } }; // remplacé par Gradle
+const MANIFESTE = { "build": "20261121-2224", "requis": ["./", "build.js", "chargeur.js", "index.html", "sonde.js"], "optionnels": ["icones/apple-touch-icon.png", "icones/icone-192.png", "icones/icone-512.png", "manifest.webmanifest", "rapport-config.js"], "versions": { "wasm": ["wasm/2482f9c544902f297373.wasm", "wasm/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_bold.otf", "wasm/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_regular.otf", "wasm/e9b28911e687b1ee6b42.wasm", "wasm/sondePwa.js"], "js": ["js/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_bold.otf", "js/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_regular.otf", "js/e9b28911e687b1ee6b42.wasm", "js/js-reexport-symbols.mjs", "js/skiko.mjs", "js/skiko.wasm", "js/skikod8.mjs", "js/sondePwa.js"] }, "alias": { "js/skiko.wasm": "js/e9b28911e687b1ee6b42.wasm", "wasm/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_bold.otf": "js/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_bold.otf", "wasm/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_regular.otf": "js/composeResources/com.example.lebiais.sonde.ressources/font/texgyreheros_regular.otf", "wasm/e9b28911e687b1ee6b42.wasm": "js/e9b28911e687b1ee6b42.wasm" } }; // remplacé par Gradle
 // MANIFESTE = {
 //   build:       "20261105-1200",
 //   requis:      fichiers communs sans lesquels la sonde ne démarre pas (échec d'installation s'il en manque un),
@@ -43,6 +43,26 @@ self.addEventListener("activate", (evenement) => {
     evenement.waitUntil(caches.keys().then((noms) =>
         Promise.all(noms.filter((n) => n.startsWith("sonde-") && n !== CACHE).map((n) => caches.delete(n)))));
 });
+
+// Contrôle du précache, demandé par la page (sonde.controlePrecache) pour le rapport : pour chaque fichier
+// attendu, présent ou non dans le cache de CE build. Réponse sur le port du message.
+self.addEventListener("message", (evenement) => {
+    if (!evenement.data || evenement.data.type !== "controlePrecache" || !evenement.ports[0]) return;
+    const port = evenement.ports[0];
+    evenement.waitUntil(controlerPrecache().then((r) => port.postMessage(r), (e) => port.postMessage({ erreur: String(e) })));
+});
+
+async function controlerPrecache() {
+    const cache = await caches.open(CACHE);
+    const verifier = (liste) => Promise.all([...new Set(liste)].map(async (c) => [c, !!(await cache.match(adresse(c)))]));
+    return {
+        build: MANIFESTE.build,
+        version: VERSION,
+        requis: await verifier([...MANIFESTE.requis, ...MANIFESTE.versions[VERSION]]),
+        optionnels: await verifier(MANIFESTE.optionnels),
+        autre: await verifier(MANIFESTE.versions[VERSION === "wasm" ? "js" : "wasm"]),
+    };
+}
 
 // Les fonds de carte : IGN (data.geopf.fr, WMTS) et OpenTopoMap (tile.opentopomap.org).
 const estTuile = (url) => /tile|wmts|geopf/i.test(url.hostname + url.pathname);
