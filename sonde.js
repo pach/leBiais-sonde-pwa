@@ -326,10 +326,24 @@ window.sonde = {
             canevas.toBlob((blob) => {
                 canevas.width = canevas.height = 0;
                 if (!blob) { resolve("Ecanevas refusé (trop grand pour ce navigateur ?)"); return; }
+                window.SONDE_DERNIER_BLOB = blob;
                 window.sonde.lireBlob(blob).then((b64) => resolve("O" + b64), (e) => resolve("Electure : " + e));
             }, "image/jpeg", 0.85);
         } catch (e) { resolve("E" + ((e && e.name) || "Error") + (e && e.message ? " : " + e.message : "")); }
     }),
+    // Le navigateur lit-il le dernier JPEG synthétique ? (createImageBitmap, hors du décodeur de la page.)
+    // Oui : le fichier est bon, un échec de la page vient de sa mémoire. Non : le JPEG lui-même est abîmé.
+    dernierePhotoLisible: async () => {
+        const blob = window.SONDE_DERNIER_BLOB;
+        if (!blob) return "aucune photo à vérifier";
+        try {
+            if (!window.createImageBitmap) return "vérification impossible : createImageBitmap absent";
+            const image = await createImageBitmap(blob);
+            const dimensions = image.width + "×" + image.height;
+            if (image.close) image.close();
+            return "lisible par le navigateur : " + dimensions + " (" + Math.round(blob.size / 1048576 * 10) / 10 + " Mo)";
+        } catch (e) { return "illisible par le navigateur : " + ((e && e.name) || "Error") + (e && e.message ? " : " + e.message : ""); }
+    },
     // Réglages du testeur (version d'iOS indiquée, libellé), gardés dans localStorage.
     lireReglage: (nom) => { try { return localStorage.getItem("sonde.reglage." + nom) || ""; } catch (e) { return ""; } },
     ecrireReglage: (nom, valeur) => { try { localStorage.setItem("sonde.reglage." + nom, valeur); } catch (e) { } },
