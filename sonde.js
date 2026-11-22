@@ -158,6 +158,7 @@ window.sonde = {
         appliquerModeClavier(el); // filet : le champ a pu prendre le focus avant que Kotlin annonce son mode
         return "inner=" + Math.round(window.innerHeight) + " vv=" + (vv ? Math.round(vv.height) + "+" + Math.round(vv.offsetTop) : "n/a")
             + " hôte=" + (hote ? hote.tagName : "-") + (hote && hote.shadowRoot ? "(ombre)" : "")
+            + " contenu=" + (el && typeof el.value === "string" ? JSON.stringify(el.value.slice(0, 12)) + "/" + el.value.length : "-")
             + " actif=" + (el ? el.tagName + (el.isContentEditable ? "(éditable)" : "") + (el.getAttribute("inputmode") ? "[" + el.getAttribute("inputmode") + "," + el.getAttribute("autocapitalize") + "]" : "") : "-");
     },
     // Le journal des chargements, une ligne par chargement : « n° 12 · 21/11 14:03 · reload · build … ».
@@ -491,6 +492,7 @@ function appliquerModeClavier(el) {
     if (!m || !el || !(el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
     el.setAttribute("inputmode", m.inputMode);
     el.setAttribute("autocapitalize", m.autoCapitalize);
+    try { el.autocapitalize = m.autoCapitalize; } catch (e) { }
     el.setAttribute("autocorrect", m.autoCapitalize === "none" ? "off" : "on");
     el.setAttribute("enterkeyhint", "done");
 }
